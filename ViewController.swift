@@ -9,8 +9,10 @@
 import UIKit
 import CoreData
 import Foundation
+import CoreBluetooth
 
-class ViewController: UIViewController {
+
+class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDelegate {
 
     var currStatus = "Safe"
     let status = UILabel(frame: CGRect(x: 0, y: 0, width: 300, height: 21))
@@ -18,6 +20,9 @@ class ViewController: UIViewController {
     let settings = UIButton(frame: CGRect(x: 0, y: 0, width: 300, height: 21))
     var name = "User"
     var number = "111-111-1111"
+    var manager:CBCentralManager!
+    let scanningDelay = 1.0
+    
     
     func saveRecent() {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
@@ -77,6 +82,8 @@ class ViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        print("We are live")
+        manager = CBCentralManager(delegate: self, queue: nil)
         let delegate = UIApplication.shared.delegate as! AppDelegate
         let managedContext = delegate.persistentContainer.viewContext
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "Identity")
@@ -131,6 +138,42 @@ class ViewController: UIViewController {
         settings.addTarget(self, action: #selector(settingsTapped(sender:)), for: .touchUpInside)
     }
     
+    func centralManagerDidUpdateState(_ central: CBCentralManager){
+        if central.state == .poweredOn{
+            manager.scanForPeripherals(withServices: nil, options: nil)
+            print("scanning")
+        }
+    }
+    
+    func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber){
+        print("i see something")
+        didReadPeripheral(peripheral, rssi: RSSI)
+    }
+    
+    func peripheral(_ peripheral: CBPeripheral, didReadRSSI RSSI: NSNumber, error: Error?) {
+        
+        didReadPeripheral(peripheral, rssi: RSSI)
+        
+        
+    }
+    
+    func didReadPeripheral(_ peripheral: CBPeripheral, rssi: NSNumber){
+        
+        if let name = peripheral.name{
+            print(name)
+        }
+        
+        delay(scanningDelay){
+            peripheral.readRSSI()
+        }
+        
+    }
+    
+    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral){
+        peripheral.readRSSI()
+        print("Connected to bluetooth")
+    }
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
@@ -138,3 +181,7 @@ class ViewController: UIViewController {
     
 }
 
+func delay(_ delay:Double, closure:@escaping ()->()) {
+    DispatchQueue.main.asyncAfter(
+        deadline: DispatchTime.now() + Double(Int64(delay * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC), execute: closure)
+}

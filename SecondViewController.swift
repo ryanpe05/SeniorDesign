@@ -63,8 +63,15 @@ class SecondViewController: UIViewController {
     }
     
     
+    func dismissKeyboard() {
+        //Causes the view (or one of its embedded text fields) to resign the first responder status.
+        view.endEditing(true)
+    }
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: "dismissKeyboard")
+        view.addGestureRecognizer(tap)
         let myColor = UIColor.black
         let delegate = UIApplication.shared.delegate as! AppDelegate
         let managedContext = delegate.persistentContainer.viewContext
