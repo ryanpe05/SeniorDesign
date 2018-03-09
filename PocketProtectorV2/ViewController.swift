@@ -5,15 +5,23 @@
 //  Created by Ryan Peck on 2/2/18.
 //  Copyright © 2018 Ryan Peck. All rights reserved.
 //
+// Bluetooth code credit to
 
 import UIKit
 import CoreData
 import Foundation
 import CoreBluetooth
+import MessageUI
+import SendBirdSDK
+import MapKit
+import CoreLocation
 
+class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDelegate, SBDChannelDelegate, CLLocationManagerDelegate{
 
-class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDelegate {
-
+    // add this if using text MFMessageComposeViewControllerDelegate
+    
+    let locationManager = CLLocationManager() //GPS manager
+    let delegateIdentifier = "1100" //id for message sent
     var currStatus = "Safe"
     let status = UILabel(frame: CGRect(x: 0, y: 0, width: 300, height: 21))
     let panic = UIButton(frame: CGRect(x: 0, y: 0, width: 100, height: 21))
@@ -22,7 +30,17 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     var number = "111-111-1111"
     var manager:CBCentralManager!
     let scanningDelay = 1.0
+    var bluetoothObjects = [[Any]]()
+    var detectedPeripheral: CBPeripheral?
+    var latitude = 1.0
+    var longitude = 1.0
     
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let locValue: CLLocationCoordinate2D = manager.location?.coordinate else { return }
+        print("locations = \(locValue.latitude) \(locValue.longitude)")
+        latitude = locValue.latitude
+        longitude = locValue.longitude
+    }
     
     func saveRecent() {
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
@@ -67,9 +85,79 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
             currStatus = "Panic"
             panic.setTitle("Safe", for: .normal)
             panic.backgroundColor = UIColor.green
+            sendEText()
         }
         saveRecent()
         status.text = "Your current status is: " + currStatus
+    }
+    
+    func sendEText(){
+//        let controller = MFMessageComposeViewController()
+//        controller.body = "Hello Neil. This was sent from the Senior Design App"
+//        manipulateNumber()
+//        controller.recipients = [number]
+//        controller.messageComposeDelegate = self
+        var customMessage = "Hello Neil. My current location is: "
+        customMessage.append(String(latitude))
+        customMessage.append(" , ")
+        customMessage.append(String(longitude))
+        SBDOpenChannel.getWithUrl("distress_signal_activate") { (channel, error) in
+            if error != nil {
+                NSLog("Error: %@", error!)
+                return
+            }
+            
+            channel?.enter(completionHandler: { (error) in
+                if error != nil {
+                    NSLog("Error: %@", error!)
+                    return
+                }
+                
+                channel?.sendUserMessage(customMessage, data: nil, completionHandler: { (userMessage, error) in
+                    if error != nil {
+                        NSLog("Error: %@", error!)
+                        return
+                    }
+                    
+                    print(userMessage ?? "can't cast")
+                    print("was sent")
+                    
+                })
+                
+                let previousMessageQuery = channel?.createPreviousMessageListQuery()
+                previousMessageQuery?.loadPreviousMessages(withLimit: 30, reverse: true, completionHandler: { (messages, error) in
+                    if error != nil {
+                        NSLog("Error: %@", error!)
+                        return
+                    }
+                    for message in messages!{
+                        print(message)
+                    }
+                })
+            })
+        }
+        //self.present(controller, animated: true, completion: nil)
+    }
+    
+    func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
+        //... handle sms screen actions
+        self.dismiss(animated: true, completion: nil)
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        self.navigationController?.isNavigationBarHidden = false
+    }
+    
+    func manipulateNumber(){
+        var offset = 0
+        for i in 0...number.count-1{
+            let ind = number.index(number.startIndex, offsetBy: i-offset)
+            if (number[ind] < "0" || number[ind] > "9"){
+                number.remove(at: ind)
+                offset = offset + 1
+            }
+        }
+        print(number)
     }
     
     func settingsTapped(sender: UIButton){
@@ -100,24 +188,24 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         }
         // Greeting Label
         let greeting = UILabel(frame: CGRect(x: 0, y: 0, width: 200, height: 21))
-        greeting.center = CGPoint(x: self.view.frame.size.width / 2, y: 285)
+        greeting.center = CGPoint(x: self.view.frame.size.width / 2, y: 85)
         greeting.textAlignment = .center
         greeting.text = "Hello " + name
         self.view.addSubview(greeting)
         // Status Label
-        status.center = CGPoint(x: self.view.frame.size.width / 2, y: 350)
+        status.center = CGPoint(x: self.view.frame.size.width / 2, y: 150)
         status.textAlignment = .center
         status.text = "Your current status is: " + currStatus
         self.view.addSubview(status)
         // Emergency Contact Label
         let contact = UILabel(frame: CGRect(x: 0, y: 0, width: 300, height: 21))
-        contact.center = CGPoint(x: self.view.frame.size.width / 2, y: 425)
+        contact.center = CGPoint(x: self.view.frame.size.width / 2, y: 225)
         contact.textAlignment = .center
         contact.text = "Current Contact is: " + number
         self.view.addSubview(contact)
         // Panic Button
         panic.layer.cornerRadius = 5
-        panic.center = CGPoint(x: self.view.frame.size.width / 2, y: 500)
+        panic.center = CGPoint(x: self.view.frame.size.width / 2, y: 300)
         if(currStatus == "Safe"){
             panic.setTitle("Panic", for: .normal)
             panic.backgroundColor = UIColor.red
@@ -130,12 +218,36 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         panic.addTarget(self, action: #selector(panicTapped(sender:)), for: .touchUpInside)
         // Settings Button
         settings.layer.cornerRadius = 5
-        settings.center = CGPoint(x: self.view.frame.size.width / 2, y: 575)
+        settings.center = CGPoint(x: self.view.frame.size.width / 2, y: 375)
         settings.setTitle("Change Settings", for: .normal)
         settings.contentHorizontalAlignment = .center
         settings.backgroundColor = UIColor.blue
         self.view.addSubview(settings)
         settings.addTarget(self, action: #selector(settingsTapped(sender:)), for: .touchUpInside)
+        // Connect to messaging service
+        SBDMain.connect(withUserId: name, completionHandler: {(user, error) in
+            if(error != nil){
+                NSLog("Error: %@", error!)
+                return
+            }
+            else{
+                print("SBD connection successful")
+            }
+        })
+        SBDMain.add(self as SBDChannelDelegate, identifier: delegateIdentifier)
+        
+        // location manager asks for permission
+        self.locationManager.requestAlwaysAuthorization()
+        
+        // For use in foreground
+        self.locationManager.requestWhenInUseAuthorization()
+        
+        if CLLocationManager.locationServicesEnabled() {
+            print("trying GPS")
+            locationManager.delegate = self
+            locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+            locationManager.startUpdatingLocation()
+        }
     }
     
     func centralManagerDidUpdateState(_ central: CBCentralManager){
@@ -154,18 +266,34 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         
         didReadPeripheral(peripheral, rssi: RSSI)
         
+        delay(scanningDelay){
+            peripheral.readRSSI()
+        }
         
     }
     
     func didReadPeripheral(_ peripheral: CBPeripheral, rssi: NSNumber){
         
-        if let name = peripheral.name{
-            print(name)
+        if let deviceName = peripheral.name{
+            for item in bluetoothObjects{
+                if((item[0] as! String).contains(deviceName)){
+                    
+                }else{
+                    bluetoothObjects.append([deviceName, rssi])
+                }
+            }
+            print(deviceName)
+            detectedPeripheral = peripheral
+            if let detectedPeripheral = detectedPeripheral{
+                detectedPeripheral.delegate = self
+                if(deviceName == "Adafruit Bluefruit LE"){
+                    print("trying to connect")
+                    manager.connect(detectedPeripheral, options: nil)
+                }
+            }
+            manager.stopScan()
         }
-        
-        delay(scanningDelay){
-            peripheral.readRSSI()
-        }
+        print(bluetoothObjects)
         
     }
     

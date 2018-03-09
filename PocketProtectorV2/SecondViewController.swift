@@ -70,7 +70,7 @@ class SecondViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: "dismissKeyboard")
+        let tap: UITapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(SecondViewController.dismissKeyboard))
         view.addGestureRecognizer(tap)
         let myColor = UIColor.black
         let delegate = UIApplication.shared.delegate as! AppDelegate
@@ -88,35 +88,35 @@ class SecondViewController: UIViewController {
         }
         // Greeting Label
         let greeting = UILabel(frame: CGRect(x: 0, y: 0, width: 200, height: 21))
-        greeting.center = CGPoint(x: self.view.frame.size.width / 2, y: 285)
+        greeting.center = CGPoint(x: self.view.frame.size.width / 2, y: 85)
         greeting.textAlignment = .center
         greeting.text = "Adjust Settings"
         self.view.addSubview(greeting)
         // Name Label
-        nameLabel.center = CGPoint(x: self.view.frame.size.width / 2 - 100, y: 350)
+        nameLabel.center = CGPoint(x: self.view.frame.size.width / 2 - 100, y: 150)
         nameLabel.textAlignment = .center
         nameLabel.text = "Your current name is: "
         self.view.addSubview(nameLabel)
         // Name entering space
-        nameSpace.center = CGPoint(x: self.view.frame.size.width / 2 + 100, y: 350)
+        nameSpace.center = CGPoint(x: self.view.frame.size.width / 2 + 100, y: 150)
         nameSpace.text = name
         nameSpace.layer.borderColor = myColor.cgColor
         nameSpace.layer.borderWidth = 1.0
         self.view.addSubview(nameSpace)
         // Emergency Contact Label
-        contactLabel.center = CGPoint(x: self.view.frame.size.width / 2 - 100, y: 425)
+        contactLabel.center = CGPoint(x: self.view.frame.size.width / 2 - 100, y: 225)
         contactLabel.textAlignment = .center
         contactLabel.text = "Current Contact is: "
         self.view.addSubview(contactLabel)
         // Emergency contact entering space
-        contactSpace.center = CGPoint(x: self.view.frame.size.width / 2 + 100, y: 425)
+        contactSpace.center = CGPoint(x: self.view.frame.size.width / 2 + 100, y: 225)
         contactSpace.text = number
         contactSpace.layer.borderColor = myColor.cgColor
         contactSpace.layer.borderWidth = 1.0
         self.view.addSubview(contactSpace)
         // Return Button
         saveButton.layer.cornerRadius = 5
-        saveButton.center = CGPoint(x: self.view.frame.size.width / 2, y: 575)
+        saveButton.center = CGPoint(x: self.view.frame.size.width / 2, y: 375)
         saveButton.setTitle("Save", for: .normal)
         saveButton.contentHorizontalAlignment = .center
         saveButton.backgroundColor = UIColor.blue
