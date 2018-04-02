@@ -28,16 +28,26 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     let settings = UIButton(frame: CGRect(x: 0, y: 0, width: 300, height: 21))
     var name = "User"
     var number = "111-111-1111"
-    var manager:CBCentralManager!
+    var manager: CBCentralManager!
     let scanningDelay = 1.0
     var bluetoothObjects = [[Any]]()
-    var detectedPeripheral: CBPeripheral?
+    var peripheral: CBPeripheral!
     var latitude = 1.0
     var longitude = 1.0
+    let BEAN_NAME = "Adafruit Bluefruit LE"
+    let BEAN_SCRATCH_UUID =
+        CBUUID(string: "6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
+    let BEAN_SERVICE_UUID =
+        CBUUID(string: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
+    
+    //Unkown UUID: 00001530-1212-EFDE-1523-785FEABCD123
+    //UART UUID: 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+    //TX UUID: 6E400002-B5A3-F393-E0A9-E50E24DCCA9E
+    //RX UUID: 6E400003-B5A3-F393-E0A9-E50E24DCCA9E
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let locValue: CLLocationCoordinate2D = manager.location?.coordinate else { return }
-        print("locations = \(locValue.latitude) \(locValue.longitude)")
+        //print("locations = \(locValue.latitude) \(locValue.longitude)")
         latitude = locValue.latitude
         longitude = locValue.longitude
     }
@@ -75,7 +85,7 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         }
     }
     
-    func panicTapped(sender: UIButton) {
+    func panicTapped(sender: UIButton?) {
         if(currStatus == "Panic"){
             currStatus = "Safe"
             panic.setTitle("Panic", for: .normal)
@@ -85,19 +95,29 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
             currStatus = "Panic"
             panic.setTitle("Safe", for: .normal)
             panic.backgroundColor = UIColor.green
+            dialNumber()
             sendEText()
         }
         saveRecent()
         status.text = "Your current status is: " + currStatus
     }
     
+    func dialNumber (){
+
+        manipulateNumber()
+
+        let newNumber = "tel:" + number
+
+        print(newNumber)
+
+        print("now we call!")
+
+        UIApplication.shared.open(URL(string: newNumber)!, options: [:], completionHandler: nil)
+    }
+    
     func sendEText(){
-//        let controller = MFMessageComposeViewController()
-//        controller.body = "Hello Neil. This was sent from the Senior Design App"
-//        manipulateNumber()
-//        controller.recipients = [number]
-//        controller.messageComposeDelegate = self
-        var customMessage = "Hello Neil. My current location is: "
+
+        var customMessage = "Hello. My current location is: "
         customMessage.append(String(latitude))
         customMessage.append(" , ")
         customMessage.append(String(longitude))
@@ -124,29 +144,20 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
                     
                 })
                 
-                let previousMessageQuery = channel?.createPreviousMessageListQuery()
-                previousMessageQuery?.loadPreviousMessages(withLimit: 30, reverse: true, completionHandler: { (messages, error) in
-                    if error != nil {
-                        NSLog("Error: %@", error!)
-                        return
-                    }
-                    for message in messages!{
-                        print(message)
-                    }
-                })
+//                let previousMessageQuery = channel?.createPreviousMessageListQuery()
+//                previousMessageQuery?.loadPreviousMessages(withLimit: 30, reverse: true, completionHandler: { (messages, error) in
+//                    if error != nil {
+//                        NSLog("Error: %@", error!)
+//                        return
+//                    }
+//                    for message in messages!{
+//                        print(message)
+//                    }
+//                })
             })
         }
-        //self.present(controller, animated: true, completion: nil)
     }
     
-    func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
-        //... handle sms screen actions
-        self.dismiss(animated: true, completion: nil)
-    }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        self.navigationController?.isNavigationBarHidden = false
-    }
     
     func manipulateNumber(){
         var offset = 0
@@ -252,54 +263,104 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     
     func centralManagerDidUpdateState(_ central: CBCentralManager){
         if central.state == .poweredOn{
-            manager.scanForPeripherals(withServices: nil, options: nil)
+            manager.scanForPeripherals(withServices: [BEAN_SERVICE_UUID], options: nil)
             print("scanning")
         }
     }
     
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String : Any], rssi RSSI: NSNumber){
         print("i see something")
-        didReadPeripheral(peripheral, rssi: RSSI)
-    }
-    
-    func peripheral(_ peripheral: CBPeripheral, didReadRSSI RSSI: NSNumber, error: Error?) {
-        
-        didReadPeripheral(peripheral, rssi: RSSI)
-        
-        delay(scanningDelay){
-            peripheral.readRSSI()
-        }
-        
-    }
-    
-    func didReadPeripheral(_ peripheral: CBPeripheral, rssi: NSNumber){
-        
+        let rssi = RSSI
         if let deviceName = peripheral.name{
             for item in bluetoothObjects{
                 if((item[0] as! String).contains(deviceName)){
-                    
+                    print("array value")
+                    print(item[0])
                 }else{
                     bluetoothObjects.append([deviceName, rssi])
                 }
             }
-            print(deviceName)
-            detectedPeripheral = peripheral
-            if let detectedPeripheral = detectedPeripheral{
-                detectedPeripheral.delegate = self
-                if(deviceName == "Adafruit Bluefruit LE"){
+            if bluetoothObjects.isEmpty{
+                bluetoothObjects.append([deviceName, rssi])
+                print(deviceName)
+                self.peripheral = peripheral
+                self.peripheral.delegate = self
+                if(deviceName == BEAN_NAME){
                     print("trying to connect")
-                    manager.connect(detectedPeripheral, options: nil)
+                    self.manager.stopScan()
+                    manager.connect(peripheral, options: nil)
                 }
             }
-            manager.stopScan()
         }
         print(bluetoothObjects)
-        
+    }
+    
+    func peripheral(_ peripheral: CBPeripheral, didReadRSSI RSSI: NSNumber, error: Error?) {
+
+        delay(scanningDelay){
+            peripheral.readRSSI()
+        }
+
+    }
+    
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        print("I am trying to discover characteristics")
+        for characteristic in service.characteristics! {
+            let thisCharacteristic = characteristic as CBCharacteristic
+            if thisCharacteristic.uuid == BEAN_SCRATCH_UUID {
+                print("my UUID's magically work")
+                self.peripheral.setNotifyValue(
+                    true,
+                    for: thisCharacteristic
+                )
+            }
+        }
+    }
+    
+    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        print("now i am looking for updated values")
+        if characteristic.uuid == BEAN_SCRATCH_UUID {
+            print("value changed")
+            let temp = characteristic.value!
+            var values = [UInt8](repeating:0, count:temp.count)
+            temp.copyBytes(to: &values, count: temp.count)
+            print(values[0])
+            print(values[0] == 1)
+            if values[0] == 1{
+                self.currStatus = "Safe"
+                panicTapped(sender: nil)
+            }
+            else if values[0] == 0{
+                self.currStatus = "Panic"
+                panicTapped(sender: nil)
+            }
+        }
+    }
+    
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        print("discovered services")
+        for service in peripheral.services! {
+            let thisService = service as CBService
+            if service.uuid == BEAN_SERVICE_UUID {
+                peripheral.discoverCharacteristics(
+                    [BEAN_SCRATCH_UUID],
+                    for: thisService
+                )
+            }
+        }
     }
     
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral){
-        peripheral.readRSSI()
         print("Connected to bluetooth")
+        //peripheral.readRSSI()
+        peripheral.discoverServices([BEAN_SERVICE_UUID])
+    }
+    
+    func centralManager(_ central: CBCentralManager, didDisConnect peripheral: CBPeripheral){
+        print("Disconnected from bluetooth")
+        //peripheral.readRSSI()
+        manager.connect(peripheral, options: nil)
+        
     }
     
     override func didReceiveMemoryWarning() {
