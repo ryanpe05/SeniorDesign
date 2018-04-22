@@ -47,7 +47,6 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let locValue: CLLocationCoordinate2D = manager.location?.coordinate else { return }
-        //print("locations = \(locValue.latitude) \(locValue.longitude)")
         latitude = locValue.latitude
         longitude = locValue.longitude
     }
@@ -108,8 +107,6 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
 
         let newNumber = "tel:" + number
 
-        print(newNumber)
-
         print("now we call!")
 
         UIApplication.shared.open(URL(string: newNumber)!, options: [:], completionHandler: nil)
@@ -117,7 +114,7 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
     
     func sendEText(){
 
-        var customMessage = "Hello. My current location is: "
+        var customMessage = name + "'s current location is: "
         customMessage.append(String(latitude))
         customMessage.append(" , ")
         customMessage.append(String(longitude))
@@ -143,21 +140,9 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
                     print("was sent")
                     
                 })
-                
-//                let previousMessageQuery = channel?.createPreviousMessageListQuery()
-//                previousMessageQuery?.loadPreviousMessages(withLimit: 30, reverse: true, completionHandler: { (messages, error) in
-//                    if error != nil {
-//                        NSLog("Error: %@", error!)
-//                        return
-//                    }
-//                    for message in messages!{
-//                        print(message)
-//                    }
-//                })
             })
         }
     }
-    
     
     func manipulateNumber(){
         var offset = 0
@@ -317,6 +302,34 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         }
     }
     
+    func connectToSDK(){
+        // Connect to messaging service to ensure connection is live in background
+        SBDMain.connect(withUserId: name, completionHandler: {(user, error) in
+            if(error != nil){
+                NSLog("Error: %@", error!)
+                return
+            }
+            else{
+                print("SBD connection successful")
+            }
+        })
+        SBDMain.add(self as SBDChannelDelegate, identifier: delegateIdentifier)
+        
+        
+        // location manager asks for permission
+        self.locationManager.requestAlwaysAuthorization()
+        
+        // For use in foreground
+        self.locationManager.requestWhenInUseAuthorization()
+        
+        if CLLocationManager.locationServicesEnabled() {
+            print("trying GPS")
+            locationManager.delegate = self
+            locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+            locationManager.startUpdatingLocation()
+        }
+    }
+    
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         print("now i am looking for updated values")
         if characteristic.uuid == BEAN_SCRATCH_UUID {
@@ -328,6 +341,7 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
             print(values[0] == 1)
             if values[0] == 1{
                 self.currStatus = "Safe"
+                connectToSDK()
                 panicTapped(sender: nil)
             }
             else if values[0] == 0{
